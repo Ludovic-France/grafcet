@@ -1,31 +1,15 @@
 const editor = document.getElementById('editor');
 const sidebar = document.querySelector('.sidebar');
+const linkLayer = document.getElementById('link-layer');
 let ghost = null;
 let draggedType = null;
 
-const linkLayer = document.getElementById('link-layer');
-let linkStart = null; // DOM element de départ
-let previewLine = null;
+// Données pour la gestion des liens
+let links = []; // {from: anchorId, to: anchorId}
+let anchors = {}; // id -> {el, parentObj, position, ...}
+let anchorIdSeq = 1;
 
-// Taille CSS des objets
-function getItemDimensions(type) {
-  switch (type) {
-    case 'initial':
-    case 'step':
-      return { width: 60, height: 60 };
-    case 'action':
-      return { width: 80, height: 60 };
-    case 'transition':
-      return { width: 40, height: 2 };
-    case 'branch-et':
-    case 'branch-ou':
-      return { width: 50, height: 50 };
-    default:
-      return { width: 50, height: 50 };
-  }
-}
-
-// Palette : drag custom
+// -- gestion de la grille et du drag depuis la palette --
 sidebar.querySelectorAll('.item').forEach(item => {
   item.addEventListener('mousedown', (e) => {
     e.preventDefault();
@@ -36,52 +20,39 @@ sidebar.querySelectorAll('.item').forEach(item => {
   });
 });
 
-// Création du ghost
+function getItemDimensions(type) {
+  return (type === 'action')
+    ? { width: 90, height: 40 }
+    : { width: 40, height: 40 };
+}
+
 function createGhost(type, x, y) {
   removeGhost();
   ghost = document.createElement('div');
   ghost.classList.add('ghost-preview', 'placed-item', type);
-  ghost.style.pointerEvents = 'none';
+  ghost.textContent = (type === 'initial') ? '0' : (type === 'step') ? 'X' : 'Action';
   ghost.style.position = 'fixed';
-  ghost.style.opacity = '0.7';
-  ghost.style.zIndex = '9999';
-  ghost.style.userSelect = 'none';
-
-  switch (type) {
-    case 'initial': ghost.textContent = '0'; break;
-    case 'step': ghost.textContent = 'X'; break;
-    case 'action': ghost.textContent = 'Action'; break;
-    case 'branch-et': ghost.textContent = 'ET'; break;
-    case 'branch-ou': ghost.textContent = 'OU'; break;
-    default: ghost.textContent = ''; break;
-  }
   document.body.appendChild(ghost);
   moveGhostPointer(x, y);
 }
-
 function moveGhost(e) {
   if (!ghost) return;
   moveGhostPointer(e.clientX, e.clientY);
 }
-
 function moveGhostPointer(x, y) {
   if (!ghost || !draggedType) return;
   const dims = getItemDimensions(draggedType);
   ghost.style.left = x + 'px';
-  ghost.style.top = (y - dims.height) + 'px'; // coin inférieur gauche au pointeur
+  ghost.style.top = (y - dims.height) + 'px';
 }
-
 function endGhostDrag(e) {
   document.removeEventListener('mousemove', moveGhost);
   document.removeEventListener('mouseup', endGhostDrag);
-
-  // Vérifier si la souris est sur l'éditeur
   const editorRect = editor.getBoundingClientRect();
   if (
     e.clientX >= editorRect.left && e.clientX <= editorRect.right &&
     e.clientY >= editorRect.top && e.clientY <= editorRect.bottom
   ) {
-    // Position magnétisée du coin inférieur gauche
     const gridSize = 20;
     let x = e.clientX - editorRect.left;
     let y = e.clientY - editorRect.top;
@@ -90,11 +61,9 @@ function endGhostDrag(e) {
     y = Math.round(y / gridSize) * gridSize - dims.height;
     createItem(draggedType, x, y);
   }
-
   removeGhost();
   draggedType = null;
 }
-
 function removeGhost() {
   if (ghost) {
     ghost.remove();
@@ -102,60 +71,154 @@ function removeGhost() {
   }
 }
 
-function addLinkListener(el) {
-  el.addEventListener('mousedown', function(e) {
-    if (!e.shiftKey) return;
-    if (!(el.classList.contains('step') || el.classList.contains('initial'))) return;
-    e.preventDefault();
-    // 1er clic avec shift : on démarre une liaison
-    if (!linkStart) {
-      linkStart = el;
-      showPreviewFollowMouse(el);
-    }
-    // 2e clic sur une étape différente
-    else if (el !== linkStart) {
-      drawLinkBetween(linkStart, el);
-      linkStart = null;
-      removePreview();
-    }
-  });
-}
-
 function createItem(type, x, y) {
   const el = document.createElement('div');
   el.classList.add('placed-item', type);
   el.style.left = `${x}px`;
   el.style.top = `${y}px`;
-  el.style.position = 'absolute';
-  el.style.userSelect = 'none';
-  el.contentEditable = (type === 'step' || type === 'initial' || type === 'action');
-
-  switch (type) {
-    case 'initial': el.textContent = '0'; break;
-    case 'step': el.textContent = 'X'; break;
-    case 'action': el.textContent = 'Action'; break;
-    case 'branch-et': el.textContent = 'ET'; break;
-    case 'branch-ou': el.textContent = 'OU'; break;
-    default: el.textContent = ''; break;
-  }
+  el.textContent = (type === 'initial') ? '0' : (type === 'step') ? 'X' : 'Action';
 
   editor.appendChild(el);
   makeDraggable(el);
-  addLinkListener(el);
+
+  // Ajout des anchors
+  if (type === 'step' || type === 'initial') {
+    addAnchorListeners(createAnchor(el, 'top'));
+    addAnchorListeners(createAnchor(el, 'bottom'));
+    addAnchorListeners(createAnchor(el, 'right'));
+  }
+  if (type === 'action') {
+    addAnchorListeners(createAnchor(el, 'left'));
+  }
+
+  el.contentEditable = (type === 'step' || type === 'initial' || type === 'action');
 }
 
-// Déplacement objets déjà placés
+// -- Création et gestion anchors --
+function createAnchor(parent, position) {
+  const anchor = document.createElement('div');
+  anchor.className = 'anchor ' + position;
+  const id = 'a' + (anchorIdSeq++);
+  anchor.dataset.anchorId = id;
+  anchors[id] = {
+    el: anchor,
+    parentObj: parent,
+    position
+  };
+  parent.appendChild(anchor);
+  return anchor;
+}
+function addAnchorListeners(anchor) {
+  anchor.addEventListener('mousedown', startLink);
+}
+
+// -- Liaison par anchor : drag and drop --
+let linking = {
+  fromAnchor: null,
+  previewLine: null
+};
+
+function anchorCoords(anchor) {
+  const rect = anchor.el.getBoundingClientRect();
+  const svgRect = linkLayer.getBoundingClientRect();
+  return {
+    x: rect.left + rect.width / 2 - svgRect.left,
+    y: rect.top + rect.height / 2 - svgRect.top
+  };
+}
+function startLink(e) {
+  e.stopPropagation();
+  const fromId = e.target.dataset.anchorId;
+  linking.fromAnchor = fromId;
+  if (linking.previewLine) linking.previewLine.remove();
+  linking.previewLine = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+  linking.previewLine.setAttribute('class', 'link-line link-preview');
+  linking.previewLine.setAttribute('stroke', '#888');
+  linking.previewLine.setAttribute('stroke-width', '3');
+  linking.previewLine.setAttribute('fill', 'none');
+  linkLayer.appendChild(linking.previewLine);
+
+  function move(ev) {
+    const a = anchorCoords(anchors[fromId]);
+    const mx = ev.clientX - linkLayer.getBoundingClientRect().left;
+    const my = ev.clientY - linkLayer.getBoundingClientRect().top;
+    linking.previewLine.setAttribute('points', `${a.x},${a.y} ${mx},${my}`);
+  }
+  function up(ev) {
+    window.removeEventListener('mousemove', move);
+    window.removeEventListener('mouseup', up);
+    if (linking.previewLine) linking.previewLine.remove();
+
+    // Detect anchor under mouse
+    let toAnchorEl = document.elementFromPoint(ev.clientX, ev.clientY);
+    if (toAnchorEl && toAnchorEl.classList && toAnchorEl.classList.contains('anchor')) {
+      let toId = toAnchorEl.dataset.anchorId;
+      if (fromId && toId && isAnchorsCompatible(fromId, toId)) {
+        links.push({ from: fromId, to: toId });
+        renderLinks();
+      }
+    }
+    linking.fromAnchor = null;
+    linking.previewLine = null;
+  }
+  window.addEventListener('mousemove', move);
+  window.addEventListener('mouseup', up);
+}
+
+function isAnchorsCompatible(fromId, toId) {
+  if (fromId === toId) return false;
+  const a = anchors[fromId];
+  const b = anchors[toId];
+  // Règles GRAFCET
+  if (a.position === b.position) return false;
+  // Etape à étape (vertical)
+  if ((a.position === 'bottom' && b.position === 'top') ||
+    (a.position === 'top' && b.position === 'bottom')) return true;
+  // Action à étape (horizontal, gauche vers droite)
+  if (a.position === 'left' && b.position === 'right') return true;
+  return false;
+}
+
+// -- Affichage dynamique des liens --
+function renderLinks() {
+  // Supprime les anciens traits
+  Array.from(linkLayer.querySelectorAll('.link-line:not(.link-preview)')).forEach(l => l.remove());
+  // Nettoie la liste de liens pour ne garder que ceux dont les 2 anchors existent ET sont dans le DOM
+  links = links.filter(link => {
+    const a = anchors[link.from], b = anchors[link.to];
+    return a && b && document.body.contains(a.el) && document.body.contains(b.el);
+  });
+  links.forEach(link => {
+    const a = anchors[link.from], b = anchors[link.to];
+    if (!a || !b) return;
+    const start = anchorCoords(a), end = anchorCoords(b);
+    const line = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+    line.setAttribute('class', 'link-line');
+    let pts, color = '#00a';
+    if ((a.position === 'bottom' && b.position === 'top') || (a.position === 'top' && b.position === 'bottom')) {
+      pts = `${start.x},${start.y} ${start.x},${end.y} ${end.x},${end.y}`;
+    } else {
+      pts = `${start.x},${start.y} ${end.x},${end.y}`;
+      color = '#000';
+    }
+    line.setAttribute('points', pts);
+    line.setAttribute('style', `stroke: ${color}; stroke-width:3; fill:none;`);
+    linkLayer.appendChild(line);
+  });
+}
+
+
+// -- Mise à jour des liens lors du déplacement --
 function makeDraggable(el) {
   let offsetX, offsetY;
   el.addEventListener('mousedown', (e) => {
-    if (e.button !== 0) return;
+    if (e.button !== 0 || e.shiftKey) return;
     offsetX = e.offsetX;
     offsetY = e.offsetY;
     document.addEventListener('mousemove', move);
     document.addEventListener('mouseup', stop);
     e.preventDefault();
   });
-
   function move(e) {
     const rect = editor.getBoundingClientRect();
     const gridSize = 20;
@@ -163,113 +226,29 @@ function makeDraggable(el) {
     let y = Math.round((e.clientY - rect.top - offsetY) / gridSize) * gridSize;
     el.style.left = `${x}px`;
     el.style.top = `${y}px`;
+    renderLinks();
   }
-
   function stop() {
     document.removeEventListener('mousemove', move);
     document.removeEventListener('mouseup', stop);
   }
 }
 
-
-
-// Gestion du clic pour la liaison
-editor.addEventListener('mousedown', function(e) {
-  if (!e.shiftKey) return;
-  const target = e.target;
-  if (!target.classList.contains('placed-item')) return;
-  if (!(target.classList.contains('step') || target.classList.contains('initial'))) return;
-
-  e.preventDefault();
-  // 1er clic avec shift : on démarre une liaison
-  if (!linkStart) {
-    linkStart = target;
-    showPreviewFollowMouse(target);
-  }
-  // 2e clic sur une étape différente
-  else if (target !== linkStart) {
-    drawLinkBetween(linkStart, target);
-    linkStart = null;
-    removePreview();
-  }
+// -- Shift = affichage des anchors --
+document.addEventListener('keydown', (e) => {
+  if (e.key === "Shift") editor.classList.add('show-anchors');
+});
+document.addEventListener('keyup', (e) => {
+  if (e.key === "Shift") editor.classList.remove('show-anchors');
 });
 
-function getCenterPos(el) {
-  const editorRect = editor.getBoundingClientRect();
-  const rect = el.getBoundingClientRect();
-  return {
-    x: rect.left - editorRect.left + rect.width / 2,
-    y: rect.top - editorRect.top + rect.height / 2
-  };
+// -- Responsive SVG
+function resizeSvg() {
+  const w = window.innerWidth - 140;
+  const h = window.innerHeight - 40;
+  linkLayer.setAttribute('width', w);
+  linkLayer.setAttribute('height', h);
+  linkLayer.setAttribute('viewBox', `0 0 ${w} ${h}`);
 }
-
-function drawLinkBetween(el1, el2) {
-  const a = getCenterPos(el1);
-  const b = getCenterPos(el2);
-
-  // Trait orthogonal : vertical d'abord, puis horizontal, ou inversement
-  const points = [
-    [a.x, a.y],
-    [a.x, b.y], // Vertical puis horizontal
-    [b.x, b.y]
-  ];
-
-  // Si les deux objets sont plus éloignés en X qu'en Y, on commence par horizontal
-  if (Math.abs(b.x - a.x) > Math.abs(b.y - a.y)) {
-    points[1] = [b.x, a.y];
-  }
-
-  const line = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
-  line.setAttribute('class', 'link-line');
-  line.setAttribute('points', points.map(p => p.join(',')).join(' '));
-  linkLayer.appendChild(line);
-}
-
-// Affiche un trait fantôme qui suit la souris
-function showPreviewFollowMouse(startEl) {
-  removePreview();
-  previewLine = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
-  previewLine.setAttribute('class', 'link-line link-preview');
-  linkLayer.appendChild(previewLine);
-
-  function mousemove(e) {
-    const a = getCenterPos(startEl);
-    const editorRect = editor.getBoundingClientRect();
-    // Coordonnées souris dans le repère de l'éditeur
-    const mx = e.clientX - editorRect.left;
-    const my = e.clientY - editorRect.top;
-
-    // Orthogonal
-    let points = [
-      [a.x, a.y],
-      [a.x, my],
-      [mx, my]
-    ];
-    if (Math.abs(mx - a.x) > Math.abs(my - a.y)) {
-      points[1] = [mx, a.y];
-    }
-    previewLine.setAttribute('points', points.map(p => p.join(',')).join(' '));
-  }
-
-  window.addEventListener('mousemove', mousemove);
-
-  previewLine._removeEvents = () => {
-    window.removeEventListener('mousemove', mousemove);
-  };
-}
-function removePreview() {
-  if (previewLine) {
-    if (previewLine._removeEvents) previewLine._removeEvents();
-    previewLine.remove();
-    previewLine = null;
-  }
-}
-
-// Annule la preview si on clique ailleurs sans finir la liaison
-document.addEventListener('mousedown', function(e) {
-  if (!e.shiftKey && linkStart) {
-    linkStart = null;
-    removePreview();
-  }
-});
-
+window.addEventListener('resize', resizeSvg);
+resizeSvg();
