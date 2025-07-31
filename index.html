@@ -1,1 +1,31 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Créateur de GRAFCET</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="top-toolbar">
+    <button id="saveJson">💾 JSON</button>
+    <button id="loadJson">📂 Ouvrir</button>
+    <button id="saveImg">🖼️ Image</button>
+  </div>
 
+  <div class="sidebar">
+    <div class="item initial" draggable="true" data-type="initial">0</div>
+    <div class="item step" draggable="true" data-type="step">X</div>
+    <div class="item transition" draggable="true" data-type="transition"></div>
+    <div class="item action" draggable="true" data-type="action">Action</div>
+    <div class="item branch-et" draggable="true" data-type="branch-et">ET</div>
+    <div class="item branch-ou" draggable="true" data-type="branch-ou">OU</div>
+  </div>
+
+
+  <svg id="link-layer" style="position:absolute; top:40px; left:140px; right:0; bottom:0;"></svg>
+  <div class="editor" id="editor"></div>
+
+
+  <script src="script.js"></script>
+</body>
+</html>
