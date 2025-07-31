@@ -219,6 +219,11 @@ function makeDraggable(el) {
     const gridSize = 20;
     let x = Math.round((e.clientX - rect.left - offsetX) / gridSize) * gridSize;
     let y = Math.round((e.clientY - rect.top - offsetY) / gridSize) * gridSize;
+
+    // Empêche de sortir du cadre par le haut ou la gauche
+    x = Math.max(0, x);
+    y = Math.max(0, y);
+
     el.style.left = `${x}px`;
     el.style.top = `${y}px`;
 
