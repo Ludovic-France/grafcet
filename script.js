@@ -209,8 +209,35 @@ function renderLinks() {
 
 
 // -- Mise à jour des liens lors du déplacement --
+let renderScheduled = false;
+
 function makeDraggable(el) {
   let offsetX, offsetY;
+
+  function move(e) {
+    const rect = editor.getBoundingClientRect();
+    const gridSize = 20;
+    let x = Math.round((e.clientX - rect.left - offsetX) / gridSize) * gridSize;
+    let y = Math.round((e.clientY - rect.top - offsetY) / gridSize) * gridSize;
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
+
+    if (!renderScheduled) {
+      renderScheduled = true;
+      window.requestAnimationFrame(() => {
+        renderLinks();
+        renderScheduled = false;
+      });
+    }
+  }
+
+  function stop() {
+    document.removeEventListener('mousemove', move);
+    document.removeEventListener('mouseup', stop);
+    // Assure un dernier rendu pour la position finale
+    renderLinks();
+  }
+
   el.addEventListener('mousedown', (e) => {
     if (e.button !== 0 || e.shiftKey) return;
     offsetX = e.offsetX;
@@ -219,19 +246,6 @@ function makeDraggable(el) {
     document.addEventListener('mouseup', stop);
     e.preventDefault();
   });
-  function move(e) {
-    const rect = editor.getBoundingClientRect();
-    const gridSize = 20;
-    let x = Math.round((e.clientX - rect.left - offsetX) / gridSize) * gridSize;
-    let y = Math.round((e.clientY - rect.top - offsetY) / gridSize) * gridSize;
-    el.style.left = `${x}px`;
-    el.style.top = `${y}px`;
-    renderLinks();
-  }
-  function stop() {
-    document.removeEventListener('mousemove', move);
-    document.removeEventListener('mouseup', stop);
-  }
 }
 
 // -- Shift = affichage des anchors --
