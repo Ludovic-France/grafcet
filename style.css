@@ -1,96 +1,115 @@
 html, body {
-  height: 100%; margin: 0; font-family: Arial;
-  background: #f0f0f0;
+  height: 100%;
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background-color: #f0f0f0;
+  overflow: hidden;
 }
-
 .top-toolbar {
-  display: flex; padding: 5px; background: #ddd; gap: 5px;
+  display: flex;
+  padding: 6px;
+  background-color: #ddd;
+  gap: 5px;
 }
-
 .sidebar {
-  position: absolute; top: 40px; left: 0; bottom: 0;
-  width: 140px; background: #e7e7e7; padding: 10px;
-  display: flex; flex-direction: column; gap: 10px;
+  position: absolute;
+  top: 40px; left: 0; bottom: 0; width: 140px;
+  background: #e7e7e7; padding: 10px; display: flex;
+  flex-direction: column; gap: 8px;
+  z-index: 100;
 }
-
 .item {
-  background: white; cursor: grab;
-  border-radius: 4px; display: flex; justify-content: center; align-items: center;
-  user-select: none; font-size: 14px;
+  background: white;
+  padding: 6px;
+  cursor: grab;
+  border-radius: 4px;
+  box-shadow: 0 2px 3px #0001;
+  user-select: none;
+  width: 40px; 
+  height: 40px;
+  display: flex; align-items: center; justify-content: center;
+  border: 2px solid #000;
+  margin-bottom: 8px;
+  font-size: 18px;
 }
-
-.item.initial, .item.step {
-  width: 60px; height: 60px; border: 2px solid #000;
-}
-
 .item.initial {
   box-shadow: inset 0 0 0 4px white, inset 0 0 0 6px black;
 }
-
-.item.transition {
-  width: 40px; height: 2px; background: black; border-radius: 0;
-}
-
 .item.action {
-  width: 80px; height: 60px; border: 2px solid #000;
+  width: 90px; height: 40px;
 }
-
-.item.branch-et, .item.branch-ou {
-  width: 50px; height: 50px; border: 2px solid #000;
+#link-layer {
+  position: absolute;
+  left: 140px; top: 40px;
+  width: calc(100vw - 140px); height: calc(100vh - 40px);
+  z-index: 5;
+  pointer-events: none;
 }
-
 .editor {
   position: absolute;
-  top: 40px;
-  left: 140px;
-  right: 0;
-  bottom: 0;
-  background-color: white;
+  left: 140px; top: 40px; right: 0; bottom: 0;
+  background: transparent;
+  background-image: radial-gradient(#ccc 1px, transparent 1px);
+  background-size: 20px 20px;
   z-index: 10;
+  overflow: hidden;
 }
-
 .placed-item {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  font-size: 14px;
+  position: absolute;
+  width: 40px; 
+  height: 40px;
+  border: 2px solid #000;
   background: #fff;
+  border-radius: 8px;
+  font-size: 18px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: grab;
+  user-select: none;
+  z-index: 20;
 }
-
-.placed-item.initial, .placed-item.step {
-  width: 60px; height: 60px; border: 2px solid #000;
+.placed-item.action {
+  width: 90px; 
+  height: 40px;
 }
-
 .placed-item.initial {
   box-shadow: inset 0 0 0 4px white, inset 0 0 0 6px black;
 }
 
-.placed-item.transition {
-  width: 40px; height: 2px; background: black;
+.placed-item[contenteditable="true"]:focus {
+  outline: 1px dashed #333;
+}
+.placed-item.step[contenteditable="true"],
+.placed-item.initial[contenteditable="true"],
+.placed-item.action[contenteditable="true"] {
+  user-select: text;
+  cursor: text;
 }
 
-.placed-item.action {
-  width: 80px; height: 60px; border: 2px solid #000;
-}
-
-.placed-item.branch-et, .placed-item.branch-ou {
-  width: 50px; height: 50px; border: 2px solid #000;
-}
-
-.ghost-preview {
-  pointer-events: none;
-  opacity: 0.6;
-  filter: drop-shadow(0 2px 8px #0002);
-}
-
-#link-layer {
+/* Anchors cachés par défaut */
+.anchor {
+  display: none;
   position: absolute;
-  left: 140px;
-  top: 40px;
-  width: calc(100vw - 140px);
-  height: calc(100vh - 40px);
-  z-index: 5;  /* en dessous */
-  pointer-events: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 7px;
+  background: #fff;
+  border: 2px solid #00a;
+  box-sizing: border-box;
+  z-index: 25;
+  cursor: crosshair;
+  transition: background 0.15s;
+  align-items: center;
+  justify-content: center;
+}
+.anchor:hover {
+  background: #cce;
+}
+.anchor.top    { top: -8px; left: 50%; transform: translateX(-50%);}
+.anchor.bottom { bottom: -8px; left: 50%; transform: translateX(-50%);}
+.anchor.left   { left: -8px; top: 50%; transform: translateY(-50%);}
+.anchor.right  { right: -8px; top: 50%; transform: translateY(-50%);}
+.editor.show-anchors .anchor {
+  display: flex !important;
 }
 .link-line {
   stroke: #00a;
@@ -101,4 +120,9 @@ html, body {
   stroke-dasharray: 5,5;
   stroke: #888;
 }
-
+.ghost-preview {
+  pointer-events: none;
+  opacity: 0.6;
+  filter: drop-shadow(0 2px 8px #0002);
+  z-index: 1000;
+}
