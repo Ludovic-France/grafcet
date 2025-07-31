@@ -1,1 +1,104 @@
+html, body {
+  height: 100%; margin: 0; font-family: Arial;
+  background: #f0f0f0;
+}
+
+.top-toolbar {
+  display: flex; padding: 5px; background: #ddd; gap: 5px;
+}
+
+.sidebar {
+  position: absolute; top: 40px; left: 0; bottom: 0;
+  width: 140px; background: #e7e7e7; padding: 10px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+
+.item {
+  background: white; cursor: grab;
+  border-radius: 4px; display: flex; justify-content: center; align-items: center;
+  user-select: none; font-size: 14px;
+}
+
+.item.initial, .item.step {
+  width: 60px; height: 60px; border: 2px solid #000;
+}
+
+.item.initial {
+  box-shadow: inset 0 0 0 4px white, inset 0 0 0 6px black;
+}
+
+.item.transition {
+  width: 40px; height: 2px; background: black; border-radius: 0;
+}
+
+.item.action {
+  width: 80px; height: 60px; border: 2px solid #000;
+}
+
+.item.branch-et, .item.branch-ou {
+  width: 50px; height: 50px; border: 2px solid #000;
+}
+
+.editor {
+  position: absolute;
+  top: 40px;
+  left: 140px;
+  right: 0;
+  bottom: 0;
+  background-color: white;
+  z-index: 10;
+}
+
+.placed-item {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 14px;
+  background: #fff;
+}
+
+.placed-item.initial, .placed-item.step {
+  width: 60px; height: 60px; border: 2px solid #000;
+}
+
+.placed-item.initial {
+  box-shadow: inset 0 0 0 4px white, inset 0 0 0 6px black;
+}
+
+.placed-item.transition {
+  width: 40px; height: 2px; background: black;
+}
+
+.placed-item.action {
+  width: 80px; height: 60px; border: 2px solid #000;
+}
+
+.placed-item.branch-et, .placed-item.branch-ou {
+  width: 50px; height: 50px; border: 2px solid #000;
+}
+
+.ghost-preview {
+  pointer-events: none;
+  opacity: 0.6;
+  filter: drop-shadow(0 2px 8px #0002);
+}
+
+#link-layer {
+  position: absolute;
+  left: 140px;
+  top: 40px;
+  width: calc(100vw - 140px);
+  height: calc(100vh - 40px);
+  z-index: 5;  /* en dessous */
+  pointer-events: none;
+}
+.link-line {
+  stroke: #00a;
+  stroke-width: 3;
+  fill: none;
+}
+.link-preview {
+  stroke-dasharray: 5,5;
+  stroke: #888;
+}
 
